@@ -4,8 +4,12 @@ import numpy as np
 import pandas as pd
 import sys
 
+### check how many samples are not in sample manifest....
 
 
+def unique_name(x):
+	# given a line of file, create unique name for link
+	return str(x[3])+":"+str(x[0])+":"+str(x[1])+"-"+str(x[2])
 
 
 ########## Load necessary files
@@ -20,16 +24,58 @@ cancer_atlas_path = working_directory + "TCGA_mastercalls.abs_segtabs.fixed.txt"
 asar_path = working_directory + "all_links.txt"
 cancer_atlas_dictionary_path = working_directory + "tcga_cancer_type_dictionary.txt"
 
-cancer_atlas = pd.read_table(cancer_atlas_path,header=0)
-asar = pd.read_table(asar_path,names=["chr","start","end","annotation","length"],
-		dtype={"chr":str,"start":int,"end":int,"annotation":str,"length":float})
-#asar.columns=["chr","start","end","annotation","length"]
+# cancer_atlas = pd.read_table(cancer_atlas_path,header=0)
+# asar = pd.read_table(asar_path,names=["chr","start","end","annotation","length"],
+# 		dtype={"chr":str,"start":int,"end":int,"annotation":str,"length":float})
+# #asar.columns=["chr","start","end","annotation","length"]
 	#dtype={"chr":str,"start":int,"end":int,"annotation":str,"length":float})
 with open (cancer_atlas_dictionary_path) as f:
 	lines = f.readlines()
 	lines = (x.rstrip("\n").split("\t") for x in lines)
 	cancer_atlas_dictionary = dict(lines)
+	f.close()
+with open ("/Users/mike/replication_tcga/data/links_segments_overlap.bed") as f:
+	lines = f.readlines()
+	intersections = [x.rstrip("\n").split("\t") for x in lines]
+	intersections = [[str(x[0]),
+	int(x[1]),
+	int(x[2]),
+	str(x[3]),
+	int(x[4]),
+	str(x[5]),
+	int(x[6]),
+	int(x[7]),
+	str(x[8]),
+	float(x[9]),
+	float(x[10]),
+	float(x[11]),
+	int(x[12])] for x in intersections]
+	#print(intersections)
+	f.close()
+#print(intersections)
 
+
+
+links = list(np.unique([str(x[3])+":"+str(x[0])+":"+str(x[1])+"-"+str(x[2]) for x in intersections]))
+samples = list(np.unique([x[8][:-3] for x in intersections]))
+types = ["gain","loss","disruption","null"]
+#print(cancer_atlas_dictionary.keys())
+remove_samples = [x for x in samples if x not in cancer_atlas_dictionary.keys()]
+normals = [x[8] for x in intersections if x[-3:]=="-10"]
+results = {k:{l : [] for l in types} for k in links } #[[sample_name,start,stop,cancertype]]
+#print(results)
+
+for i in range(len(intersections)):
+	if (intersections[i][12] == intersections[i][4]) and (intersections[i][11]==1.0):
+		results[unique_name(intersections[i])]["loss"]+=[intersections[i][8],cancer_atlas_dictionary[intersections[i][8][:-3]],intersections[i][5],intersections[i][6],intersections[i][7]]
+	if (intersections[i][12] == intersections[i][4]) and (intersections[i][11]>2.0):
+		results[unique_name(intersections[i])]["gain"]+=[intersections[i][8],cancer_atlas_dictionary[intersections[i][8][:-3]],intersections[i][5],intersections[i][6],intersections[i][7]]
+	if (intersections[i][12] == intersections[i][4]) and (intersections[i][11]==2.0):
+		results[unique_name(intersections[i])]["null"]+=[intersections[i][8],cancer_atlas_dictionary[intersections[i][8][:-3]],intersections[i][5],intersections[i][6],intersections[i][7]]
+	
+	if (intersections[i][12] < intersections[i][4]):
+		results[unique_name(intersections[i])]["disruption"]+=[intersections[i][8],cancer_atlas_dictionary[intersections[i][8][:-3]],intersections[i][5],intersections[i][6],intersections[i][7]]
+print(results)
 #print(cancer_atlas)
 #print(asar.dtypes)
 #print(asar.loc[2,"start"]+3)
