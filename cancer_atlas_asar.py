@@ -15,6 +15,8 @@ def unique_name(x):
 ########## Load necessary files
 platform_name=sys.platform
 
+# "/Users/heskett/tcga_replication_timing/data/"
+
 if platform_name=="linux":
 	working_directory =  "/home/exacloud/lustre1/SpellmanLab/heskett/tcga_replication_timing/data/"
 if platform_name=="darwin":
@@ -29,12 +31,12 @@ cancer_atlas_dictionary_path = working_directory + "tcga_cancer_type_dictionary.
 # 		dtype={"chr":str,"start":int,"end":int,"annotation":str,"length":float})
 # #asar.columns=["chr","start","end","annotation","length"]
 	#dtype={"chr":str,"start":int,"end":int,"annotation":str,"length":float})
-with open (cancer_atlas_dictionary_path) as f:
+with open ("/Users/heskett/tcga_replication_timing/data/tcga_cancer_type_dictionary.txt") as f:
 	lines = f.readlines()
 	lines = (x.rstrip("\n").split("\t") for x in lines)
 	cancer_atlas_dictionary = dict(lines)
 	f.close()
-with open ("/Users/mike/replication_tcga/data/links_segments_overlap.bed") as f:
+with open ("/Users/heskett/tcga_replication_timing/data/links_segments_overlap.bed") as f:
 	lines = f.readlines()
 	intersections = [x.rstrip("\n").split("\t") for x in lines]
 	intersections = [[str(x[0]),
@@ -55,27 +57,34 @@ with open ("/Users/mike/replication_tcga/data/links_segments_overlap.bed") as f:
 #print(intersections)
 
 
-
 links = list(np.unique([str(x[3])+":"+str(x[0])+":"+str(x[1])+"-"+str(x[2]) for x in intersections]))
 samples = list(np.unique([x[8][:-3] for x in intersections]))
 types = ["gain","loss","disruption","null"]
 #print(cancer_atlas_dictionary.keys())
 remove_samples = [x for x in samples if x not in cancer_atlas_dictionary.keys()]
 normals = [x[8] for x in intersections if x[-3:]=="-10"]
+#print(normals)
+#print(remove_samples)
 results = {k:{l : [] for l in types} for k in links } #[[sample_name,start,stop,cancertype]]
 #print(results)
 
 for i in range(len(intersections)):
+	if intersections[i][8][:-3] in remove_samples:
+		continue
 	if (intersections[i][12] == intersections[i][4]) and (intersections[i][11]==1.0):
-		results[unique_name(intersections[i])]["loss"]+=[intersections[i][8],cancer_atlas_dictionary[intersections[i][8][:-3]],intersections[i][5],intersections[i][6],intersections[i][7]]
+		results[unique_name(intersections[i])]["loss"]+=[[intersections[i][8],cancer_atlas_dictionary[intersections[i][8][:-3]],intersections[i][5],intersections[i][6],intersections[i][7]]]
 	if (intersections[i][12] == intersections[i][4]) and (intersections[i][11]>2.0):
-		results[unique_name(intersections[i])]["gain"]+=[intersections[i][8],cancer_atlas_dictionary[intersections[i][8][:-3]],intersections[i][5],intersections[i][6],intersections[i][7]]
+		results[unique_name(intersections[i])]["gain"]+=[[intersections[i][8],cancer_atlas_dictionary[intersections[i][8][:-3]],intersections[i][5],intersections[i][6],intersections[i][7]]]
 	if (intersections[i][12] == intersections[i][4]) and (intersections[i][11]==2.0):
-		results[unique_name(intersections[i])]["null"]+=[intersections[i][8],cancer_atlas_dictionary[intersections[i][8][:-3]],intersections[i][5],intersections[i][6],intersections[i][7]]
+		results[unique_name(intersections[i])]["null"]+=[[intersections[i][8],cancer_atlas_dictionary[intersections[i][8][:-3]],intersections[i][5],intersections[i][6],intersections[i][7]]]
 	
 	if (intersections[i][12] < intersections[i][4]):
-		results[unique_name(intersections[i])]["disruption"]+=[intersections[i][8],cancer_atlas_dictionary[intersections[i][8][:-3]],intersections[i][5],intersections[i][6],intersections[i][7]]
-print(results)
+		results[unique_name(intersections[i])]["disruption"]+=[[intersections[i][8],cancer_atlas_dictionary[intersections[i][8][:-3]],intersections[i][5],intersections[i][6],intersections[i][7]]]
+print(results["VLINC246:6:85094762-85318808"]["loss"])
+
+### results keys are asars
+
+
 #print(cancer_atlas)
 #print(asar.dtypes)
 #print(asar.loc[2,"start"]+3)
