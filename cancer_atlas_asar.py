@@ -77,10 +77,29 @@ for i in range(len(intersections)):
 		results[unique_name(intersections[i])]["gain"]+=[[intersections[i][8],cancer_atlas_dictionary[intersections[i][8][:-3]],intersections[i][5],intersections[i][6],intersections[i][7]]]
 	if (intersections[i][12] == intersections[i][4]) and (intersections[i][11]==2.0):
 		results[unique_name(intersections[i])]["null"]+=[[intersections[i][8],cancer_atlas_dictionary[intersections[i][8][:-3]],intersections[i][5],intersections[i][6],intersections[i][7]]]
-	
 	if (intersections[i][12] < intersections[i][4]):
 		results[unique_name(intersections[i])]["disruption"]+=[[intersections[i][8],cancer_atlas_dictionary[intersections[i][8][:-3]],intersections[i][5],intersections[i][6],intersections[i][7]]]
-print(results["VLINC246:6:85094762-85318808"]["loss"])
+#print(results["VLINC246:6:85094762-85318808"]["loss"])
+
+### analyze results
+### make data frame with just counts of loss,gain,disruption,null for all asars, with cancer type included???? could probably do this in the loop...
+
+
+print(len(results["VLINC246:6:85094762-85318808"]["loss"]))
+print(len(results["VLINC246:6:85094762-85318808"]["gain"]))
+print(len(results["VLINC246:6:85094762-85318808"]["disruption"]))
+print(len(results["VLINC246:6:85094762-85318808"]["null"]))
+
+test  = pd.DataFrame(columns=["asar","loss","gain","disruption","null","cancer_type"])
+
+counts = []
+for i in range(len(links)):
+	counts += [[links[i],len(results[links[i]]["loss"]),
+	len(results[links[i]]["gain"]),
+	len(results[links[i]]["disruption"]),
+	len(results[links[i]]["null"])]]
+
+print(pd.DataFrame(counts,columns=["asar","loss","gain","disruption","null"]).set_index("asar"))
 
 ### results keys are asars
 
