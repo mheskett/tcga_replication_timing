@@ -6,6 +6,7 @@ import sys
 import matplotlib.pyplot as plt
 import pybedtools
 import re
+import pybedtools
 
 
 def unique_name(x):
@@ -162,6 +163,18 @@ for i in range(len(types)):
 	plt.close()
 	print(answer)
 	answer = pd.DataFrame()
+
+## simulated links
+
+for i in range(len(links)):
+
+	x = pybedtools.BedTool()
+#l is length, n is number
+# woohoo
+	length = re.split("[-:]",links[i])
+	length = int(length[3])-int(length[2])
+
+	y = x.random(l=length,n=100,g="/Users/mike/replication_tcga/data/hg38.cleaned.bed")
 # results_df = {} # dictionary of data frames for each link
 # for i in range(len(links_names)):
 # 	tmp=pd.DataFrame.from_dict(results[links_names[i]])
