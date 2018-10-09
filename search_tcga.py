@@ -92,7 +92,7 @@ for i in range(len(links)):
 	results[name]["disruption"] = segments_df[(segments_df['chr'] == link_chromosome) 
 	& (segments_df['start'].between(left=link_start,right=link_end) 
 	| segments_df['stop'].between(left=link_start,right=link_end))
-	& (segments_df['copy_number'] != 2.0 )]
+	& (segments_df['copy_number'] != 2.0 )] ## should be max one per link per sample--so need to process this further
 
 print("done")
 print(results)
@@ -140,7 +140,7 @@ samples = list(np.unique([x[3][:-3] for x in segments]))
 results[links[9][0]]["loss"]["cancer_type"].value_counts().plot(kind='bar')
 #print(len(results[links[9][0]]["disruption"]))
 #print(links[0])
-#plt.show()
+#plt.show(\]
 
 counts = {k:[] for k in links_names} ### to make counts table...
 for i in range(len(links)):
@@ -170,7 +170,6 @@ for i in range(len(links)):
 
 	x = pybedtools.BedTool()
 #l is length, n is number
-# woohoo
 	length = re.split("[-:]",links[i])
 	length = int(length[3])-int(length[2])
 
