@@ -8,12 +8,11 @@ import pybedtools
 import re
 import pybedtools
 
+## question is to see which ASAR's are most significantly altered in cancer
 
 def unique_name(x):
 	# given a line of file, create unique name for link
 	return str(x[3])+":"+str(x[0])+":"+str(x[1])+"-"+str(x[2])
-
-
 
 with open ("/Users/mike/replication_tcga/data/tcga_cancer_type_dictionary.txt") as f:
 	lines = f.readlines()

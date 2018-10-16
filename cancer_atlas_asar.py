@@ -3,6 +3,9 @@ import csv
 import numpy as np
 import pandas as pd
 import sys
+import matplotlib.pyplot as plt
+import pybedtools
+import re
 
 ### check how many samples are not in sample manifest....
 
@@ -31,12 +34,17 @@ cancer_atlas_dictionary_path = working_directory + "tcga_cancer_type_dictionary.
 # 		dtype={"chr":str,"start":int,"end":int,"annotation":str,"length":float})
 # #asar.columns=["chr","start","end","annotation","length"]
 	#dtype={"chr":str,"start":int,"end":int,"annotation":str,"length":float})
-with open ("/Users/heskett/tcga_replication_timing/data/tcga_cancer_type_dictionary.txt") as f:
+with open ("/Users/mike/replication_tcga/data/tcga_cancer_type_dictionary.txt") as f:
 	lines = f.readlines()
 	lines = (x.rstrip("\n").split("\t") for x in lines)
 	cancer_atlas_dictionary = dict(lines)
 	f.close()
-with open ("/Users/heskett/tcga_replication_timing/data/links_segments_overlap.bed") as f:
+
+## create list of cancer types
+
+cancer_types = list(np.unique([x for x in cancer_atlas_dictionary.values()]))
+print(cancer_types)
+with open ("/Users/mike/replication_tcga/data/links_segments_overlap_grch38.bed") as f:
 	lines = f.readlines()
 	intersections = [x.rstrip("\n").split("\t") for x in lines]
 	intersections = [[str(x[0]),
@@ -54,52 +62,86 @@ with open ("/Users/heskett/tcga_replication_timing/data/links_segments_overlap.b
 	int(x[12])] for x in intersections]
 	#print(intersections)
 	f.close()
+
 #print(intersections)
+
+all_links = pd.read_table("/Users/mike/replication_tcga/data/links_final.bed",
+	index_col=None,
+	names=["chr","start","stop","name","length"])
+#print(all_links)
+
+print(all_links["length"].describe())
+all_links.hist("length")
+#plt.show()
 
 
 links = list(np.unique([str(x[3])+":"+str(x[0])+":"+str(x[1])+"-"+str(x[2]) for x in intersections]))
 samples = list(np.unique([x[8][:-3] for x in intersections]))
-types = ["gain","loss","disruption","null"]
+types = ["gain","loss","neutral"]
 #print(cancer_atlas_dictionary.keys())
 remove_samples = [x for x in samples if x not in cancer_atlas_dictionary.keys()]
-normals = [x[8] for x in intersections if x[-3:]=="-10"]
+#normals = [x[8] for x in intersections if x[-3:]=="-10"]
 #print(normals)
 #print(remove_samples)
-results = {k:{l : [] for l in types} for k in links } #[[sample_name,start,stop,cancertype]]
+#results = {k:{l : [] for l in types} for k in links } #[[sample_name,start,stop,cancertype]]
 #print(results)
+results = {k:[] for k in links }
 
 for i in range(len(intersections)):
 	if intersections[i][8][:-3] in remove_samples:
 		continue
-	if (intersections[i][12] == intersections[i][4]) and (intersections[i][11]==1.0):
-		results[unique_name(intersections[i])]["loss"]+=[[intersections[i][8],cancer_atlas_dictionary[intersections[i][8][:-3]],intersections[i][5],intersections[i][6],intersections[i][7]]]
-	if (intersections[i][12] == intersections[i][4]) and (intersections[i][11]>2.0):
-		results[unique_name(intersections[i])]["gain"]+=[[intersections[i][8],cancer_atlas_dictionary[intersections[i][8][:-3]],intersections[i][5],intersections[i][6],intersections[i][7]]]
+	if (intersections[i][11]<2.0):
+		results[unique_name(intersections[i])]+=[[intersections[i][8],"loss",cancer_atlas_dictionary[intersections[i][8][:-3]],intersections[i][5],intersections[i][6],intersections[i][7]]]
+	if (intersections[i][11]>2.0):
+		results[unique_name(intersections[i])]+=[[intersections[i][8],"gain",cancer_atlas_dictionary[intersections[i][8][:-3]],intersections[i][5],intersections[i][6],intersections[i][7]]]
 	if (intersections[i][12] == intersections[i][4]) and (intersections[i][11]==2.0):
-		results[unique_name(intersections[i])]["null"]+=[[intersections[i][8],cancer_atlas_dictionary[intersections[i][8][:-3]],intersections[i][5],intersections[i][6],intersections[i][7]]]
-	if (intersections[i][12] < intersections[i][4]):
-		results[unique_name(intersections[i])]["disruption"]+=[[intersections[i][8],cancer_atlas_dictionary[intersections[i][8][:-3]],intersections[i][5],intersections[i][6],intersections[i][7]]]
-#print(results["VLINC246:6:85094762-85318808"]["loss"])
+		results[unique_name(intersections[i])]+=[[intersections[i][8],"neutral",cancer_atlas_dictionary[intersections[i][8][:-3]],intersections[i][5],intersections[i][6],intersections[i][7]]]
+#
+#	if (intersections[i][12] < intersections[i][4]) and (intersections[i][11]!=2.0):
+#		results[unique_name(intersections[i])]+=[[intersections[i][8],"disruption",cancer_atlas_dictionary[intersections[i][8][:-3]],intersections[i][5],intersections[i][6],intersections[i][7]]]
+
+results_df = {} # dictionary of data frames for each link
+for i in range(len(links)):
+	tmp=pd.DataFrame.from_dict(results[links[i]])
+	tmp.columns = ["sample","type","cancer_type","chr","start","end"]
+	results_df[links[i]]=tmp
+#print(results_df["VLINC273:6:141034658-141219628"])
+#results_df["VLINC273:6:141034658-141219628"].to_csv("vlink273.txt")
+
+#test_df = results_df["VLINC273:6:141034658-141219628"]
+#print(test_df["type"].value_counts())
+
+counts_df = pd.DataFrame() ## this counts number of gains and losses across all
+for i in range(len(links)):
+	counts_df = counts_df.append(results_df[links[i]]["type"].value_counts().rename(links[i]))
+counts_df.to_csv("disruption_counts.txt",sep="\t")
+#print(counts_df.sum(axis="columns"))
+
+############## create simulated links
+for i in range(len(links)):
+
+	x = pybedtools.BedTool()
+#l is length, n is number
+# woohoo
+	length = re.split("[-:]",links[i])
+	length = int(length[3])-int(length[2])
+
+	y = x.random(l=length,n=100,g="/Users/mike/replication_tcga/data/hg38.cleaned.bed")# could change this to the file i created "hg38.cleaned.bed"
+	print(y.intersect("/Users/mike/replication_tcga/data/TCGA.segtabs.bed",wao=True))
+
+
+
+
+
+
 
 ### analyze results
 ### make data frame with just counts of loss,gain,disruption,null for all asars, with cancer type included???? could probably do this in the loop...
 
 
-print(len(results["VLINC246:6:85094762-85318808"]["loss"]))
-print(len(results["VLINC246:6:85094762-85318808"]["gain"]))
-print(len(results["VLINC246:6:85094762-85318808"]["disruption"]))
-print(len(results["VLINC246:6:85094762-85318808"]["null"]))
-
-test  = pd.DataFrame(columns=["asar","loss","gain","disruption","null","cancer_type"])
-
-counts = []
-for i in range(len(links)):
-	counts += [[links[i],len(results[links[i]]["loss"]),
-	len(results[links[i]]["gain"]),
-	len(results[links[i]]["disruption"]),
-	len(results[links[i]]["null"])]]
-
-print(pd.DataFrame(counts,columns=["asar","loss","gain","disruption","null"]).set_index("asar"))
+# lengths = pd.DataFrame(counts,columns=["asar","loss","gain","disruption","neutral"]).set_index("asar")
+# lengths.hist()
+# plt.show()
 
 ### results keys are asars
 
