@@ -60,6 +60,7 @@ def simulate_links(length):
 #print(simulate_links(10**6,3,4,5))
 
 def get_similar_links(df,snps=False,l1=False,gc=False): ## builds distribution OR inputs a real link
+	# takes in DF of fake links of size of real link, and snp,l1,gc of REAL link
 	df.describe(include=["float"],percentiles=[0.45,0.55]) # or coudl use quantile
 	# get quantile OF real link, then add and subtract 0.05
 	"""
