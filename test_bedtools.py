@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import time
 import scipy.stats
 
-def simulate_links(length,window_fraction=0.1):
+def simulate_links(length,window_fraction=0.25):
 
 	"""	
 	#/Users/heskett/tcga_replication_timing/data
@@ -60,15 +60,15 @@ def simulate_links(length,window_fraction=0.1):
 	
 	return final
 
-def get_similar_links(df,snps=False,l1=False,gc=False,wiggle=0.05):
-	# takes in DF of fake links of size of real link, and snp,l1,gc of REAL link
+def get_similar_links(df,snps=False,l1=False,gc=False,wiggle=0.05,minimum=20):
+
 	"""
+	takes in DF of fake links of size of real link, and snp,l1,gc of REAL link
 	works with output of simulate links
 	does boolean selection of simulate links data frame
 	build distribution of snps/kb,pct_gc,fracl1, then select SIMILAR windows and return them
-
-
 	"""
+
 	# get percentile score of input parameters in fake link data frame
 	snps_score,gc_score,l1_score = (scipy.stats.percentileofscore(df["snps/kb"], score=snps, kind='rank'),
 									scipy.stats.percentileofscore(df["pct_gc"], score=gc, kind='rank'),
@@ -83,10 +83,26 @@ def get_similar_links(df,snps=False,l1=False,gc=False,wiggle=0.05):
 		& (df["fraction_l1"]\
 			.between(left=df["fraction_l1"].quantile(q=(l1_score/100)-wiggle),
 					right=df["fraction_l1"].quantile(q=(l1_score/100)+wiggle)))]
+
+	if len(results) < minimum:
+		wiggle+=0.05
+		results = get_similar_links(df,snps=snps,gc=gc,l1=l1,wiggle=wiggle,minimum=minimum) # recursive biatch
+	print(wiggle)
+
 	
 	# now check to see total number, if its too small, raise the quantile and go again
 	# can use bedtools merge -d to merge overlapping features with minimum distance
 
 	return results
+
+
+fake_link_dict = {}
+for i in range(len(links)):
+	fake_links[link_name]=get_similar_links(simulate_links(length=100000),snps=5.179,l1=0.175,gc=.4)
+	search_tcga(real link)
+	for j in range(len(links)):
+		search_tcga(segments_df,link_chromosome,link_start,link_end,name) # all fake links
+
+## now compare real vs fake distributions for statistics
 
 print(get_similar_links(simulate_links(length=579803),snps=5.179,l1=0.175,gc=.4))
