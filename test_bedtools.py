@@ -5,6 +5,43 @@ import matplotlib.pyplot as plt
 import time
 import scipy.stats
 
+
+
+def search_tcga(segments_df,link_chromosome,link_start,link_end,name):
+	# segments data frame must have columns
+	# chromosome, start, stop, patient, cancer_type, copy_number
+
+	# okay... should not use nested dict. should use one dict with an extra column for type...
+	types = ["gain","loss","neutral","disruption"]
+	results = {name:{i:pd.DataFrame() for i in types}}
+	results2 = {name:pd.DataFrame()} # dont need nested dict. this for version 2
+	## loop through types, append column of types, append to single dict.....
+	# should just be one data frame right?
+	# with asar name, type of disruption, cancer type, patient sample name, copy number? 
+
+	results2[name] = results2[name].append(segments_df[(segments_df['chr'] == link_chromosome) # v2 just appends these
+							& (segments_df['start'] <= link_start)
+							& (segments_df['stop'] >= link_end) 
+							& (segments_df['copy_number'] <2.0 )])
+	
+	results[name]["gain"] = segments_df[(segments_df['chr'] == link_chromosome) 
+							& (segments_df['start'] <= link_start)
+							& (segments_df['stop'] >= link_end) 
+							& (segments_df['copy_number'] > 2.0 )]
+	
+	results[name]["neutral"] = segments_df[(segments_df['chr'] == link_chromosome) 
+							& (segments_df['start'] <= link_start) 
+							& (segments_df['stop'] >= link_end) 
+							& (segments_df['copy_number'] == 2.0 )]
+	# max one per sample
+	results[name]["disruption"] = segments_df[(segments_df['chr'] == link_chromosome) 
+								& (segments_df['start'].between(left=link_start,right=link_end)
+								| segments_df['stop'].between(left=link_start,right=link_end))]
+	results[name]["disruption"] = results[name]["disruption"].drop_duplicates(subset="patient",keep="first")
+
+
+	return results
+
 def simulate_links(length,window_fraction=0.25):
 
 	"""	
