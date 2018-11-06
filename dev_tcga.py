@@ -354,9 +354,11 @@ pool = mp.Pool(processes=4)
 results = pool.starmap(cancer_specific,[(segments_df,[x],cancer_types) for x in links]) ## yesssss. each link needs to be list of list in parallel call
 
 with open("links_tcga_parallel.txt", "a") as f: # should make this write each loop
-    writer = csv.writer(f,delimiter="\t")
+    writer = csv.writer(f,delimiter="\t") #format output better
     writer.writerows(results)
 
+# sed 's/\[//g' tcga_results.txt | sed 's/\]//g' | sed "s/'//g" | sed "s/,/     /g" > tcga_results_formatted.tsv
+# tr '  ' '\n' < links_tcga_parallel.txt
 
 
 # print("Starting loop")
