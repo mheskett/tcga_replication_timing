@@ -115,13 +115,7 @@ def faster_simulate_links(length,window_fraction=0.25,snps=False,l1=False,gc=Fal
 	nuct=time.time()
 	print(nuct-snpt," nuc time")
 	window_snp_l1_nuc.columns = ["chrom","start","end","num_snps","cov1","cov2","cov3","fraction_l1","snps/kb","AT","pct_gc"]
-	#window_snp_l1_nuc = window_snp_l1_nuc.drop(0,axis="rows")
-	# keepers = [x for x in window_snp_l1_nuc.columns if "user" in x or "pct_gc" in x]
-	# window_snp_l1_nuc = window_snp_l1_nuc.loc[:,keepers]
-	# window_snp_l1_nuc.columns = ["chrom","start","end",
-	# 									"num_snps","cov1",
-	# 									"cov2","cov3","fraction_l1","snps/kb","pct_gc"
-	# 									]
+
 	window_snp_l1_nuc[["pct_gc","fraction_l1","snps/kb","start","end"]] = \
 	window_snp_l1_nuc[["pct_gc","fraction_l1","snps/kb","start","end"]].apply(pd.to_numeric)
 	gc_score = scipy.stats.percentileofscore(window_snp_l1_nuc["pct_gc"], score=gc, kind='rank')
@@ -250,6 +244,7 @@ def cancer_specific(segments_df,links,cancer_types):
 						1-scipy.stats.percentileofscore(fake_counts_df["neutral"], score=counts_df["neutral"].values[0], kind='weak')/100]
 
 			print(len(fake_links))
+			print(pvals)
 			pvals = [1/len(fake_links) if x==0 else x for x in pvals]
 			print(pvals)
 			output += [pvals]
@@ -263,7 +258,7 @@ with open ("/Users/mike/replication_tcga/data/tcga_cancer_type_dictionary.txt") 
 	cancer_atlas_dictionary = dict(lines)
 	f.close()
 
-with open ("/Users/mike/replication_tcga/data/links_annotated_grch38.bed") as g:
+with open ("/Users/mike/replication_tcga/data/test_link.bed") as g:
 	links = g.readlines()
 	links = [x.rstrip("\n").split("\t") for x in links[1:]] # cols are unique_name chrom start end name length snps pct gc l1
 	links = [[str(x[3])+":"+str(x[0])+":"+str(x[1])+"-"+str(x[2]),
@@ -310,9 +305,11 @@ results = pool.starmap(cancer_specific,[(segments_df,[x],cancer_types) for x in 
 
 with open("links_tcga_parallel.txt", "w") as f: # should make this write each loop
     writer = csv.writer(f,delimiter="\t") #format output better
-    writer.writerows(results)
+    for i in range(len(results)):
+    	for j in range(len(results[i])):
+    		writer.writerow(results[i][j])
 
 
-   #  tr '    ' '\n' < links_tcga_parallel1.txt > tcga_results.txt
+# os.system("tr '    ' '\n' < links_tcga_parallel1.txt > tcga_results.txt")
 
-  # sed 's/\[//g' tcga_results.txt | sed 's/\]//g' | sed "s/'//g" | sed "s/,/      /g" > tcga_results_formatted.tsv
+# os.system(sed "s/\[//g" tcga_results.txt | sed "s/\]//g" | sed "s/'//g" | sed "s/,/      /g" > tcga_results_formatted.tsv)
