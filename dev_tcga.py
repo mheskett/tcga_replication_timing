@@ -258,7 +258,7 @@ with open ("/Users/mike/replication_tcga/data/tcga_cancer_type_dictionary.txt") 
 	cancer_atlas_dictionary = dict(lines)
 	f.close()
 
-with open ("/Users/mike/replication_tcga/data/test_link.bed") as g:
+with open ("/Users/mike/replication_tcga/data/links_annotated_grch38.bed") as g:
 	links = g.readlines()
 	links = [x.rstrip("\n").split("\t") for x in links[1:]] # cols are unique_name chrom start end name length snps pct gc l1
 	links = [[str(x[3])+":"+str(x[0])+":"+str(x[1])+"-"+str(x[2]),
