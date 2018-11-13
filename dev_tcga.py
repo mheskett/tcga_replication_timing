@@ -13,7 +13,48 @@ import multiprocessing as mp
 def min_max(x):
 	return min(max(0,x),1)
 
-def faster_simulate_links(length,window_fraction=0.25,snps=False,l1=False,gc=False,wiggle=0.05,minimum=30,maximum=100):
+def plot_features(length,window_fraction=1):
+
+	start=time.time()
+	# snp doesnt need to be bedtool object yet i guess
+	snp_file = "/Users/mike/replication_tcga/data/snp150.ucsc.hg38.nochr.sorted.bed"
+	l1_file = pybedtools.BedTool("/Users/mike/replication_tcga/data/L1_ucsc_hg38_nochr.bed")
+
+	# initiate bed tool and make windows
+	# all file must be sorted sort -k1,1 -k2,2n
+	a=pybedtools.BedTool()
+	windows=a.window_maker(g="/Users/mike/replication_tcga/data/hg38.nochr.sorted.fa.fai",
+							w=length,s=length*window_fraction)
+
+	windows_snp = windows.intersect(snp_file,c=True,sorted=True) # makes one column
+	#print(str(snpt-gc)+ " time for snp ") ## pre sorted file much faster sort -k1,1 -k2,2n
+	
+	## get L1
+	windows_snp_l1 = windows_snp.coverage(l1_file)# produces 4 columns
+
+	df = windows_snp_l1.to_dataframe(names=["chrom","start","end",
+										"num_snps","cov1",
+										"cov2","cov3","fraction_l1"])
+	df["snps/kb"] = df["num_snps"] / (length/1000)
+	
+	b = pybedtools.BedTool()
+	window_snp_l1_reduced = b.from_dataframe(df)
+	window_snp_l1_nuc =  window_snp_l1_reduced.nucleotide_content(fi="/Users/mike/replication_tcga/data/hg38.nochr.fa")#\
+							#.to_dataframe() ## 0th column has colnames. current colname is garbage
+
+	# columns at this point are...
+	# chrom start stop num snps, cov1, cov2, cov3, fraction l1, snps/kb, %AT, %GC, whatever...
+	window_snp_l1_nuc = window_snp_l1_nuc.to_dataframe()
+	window_snp_l1_nuc = window_snp_l1_nuc.loc[:,0:10]
+	window_snp_l1_nuc.columns = ["chrom","start","end","num_snps","cov1","cov2","cov3","fraction_l1","snps/kb","AT","pct_gc"]
+	window_snp_l1_nuc[["pct_gc","fraction_l1","snps/kb","start","end"]] = \
+	window_snp_l1_nuc[["pct_gc","fraction_l1","snps/kb","start","end"]].apply(pd.to_numeric)
+	window_snp_l1_nuc.plot(kind = 'bar')
+	plt.show()
+
+	return
+
+def faster_simulate_links(length,window_fraction=0.25,snps=False,l1=False,gc=False,wiggle=0.05,minimum=40,maximum=100):
 	"""
 	returns a list of fake genes, from a length
 	predicated on the fact that bedtools.nuc is the only slow step in this analysis
@@ -55,29 +96,32 @@ def faster_simulate_links(length,window_fraction=0.25,snps=False,l1=False,gc=Fal
 							scipy.stats.percentileofscore(a=df["fraction_l1"], score=l1, kind='rank'))
 	df = df[
 		(df["snps/kb"]\
-			.between(left=df["snps/kb"].quantile(q=min_max(snps_score/100-wiggle)),
+			.between(left=df["snps/kb"].quantile(q=min_max(snps_score/100-wiggle)), # could separate these for optimization if necessary
 					right=df["snps/kb"].quantile(q=min_max(snps_score/100+wiggle))))\
 		& (df["fraction_l1"]\
 			.between(left=df["fraction_l1"].quantile(q=min_max(l1_score/100-wiggle)), 
 					right=df["fraction_l1"].quantile(q=min_max(l1_score/100+wiggle))))]
-	
+		## should add another recursive call right here...
 	b = pybedtools.BedTool()
 	window_snp_l1_reduced = b.from_dataframe(df)
 	window_snp_l1_nuc =  window_snp_l1_reduced.nucleotide_content(fi="/Users/mike/replication_tcga/data/hg38.nochr.fa")#\
 							#.to_dataframe() ## 0th column has colnames. current colname is garbage
+
+	# columns at this point are...
+	# chrom start stop num snps, cov1, cov2, cov3, fraction l1, snps/kb, %AT, %GC, whatever...
 	window_snp_l1_nuc = is_real_link(window_snp_l1_nuc)
 	window_snp_l1_nuc = window_snp_l1_nuc.to_dataframe()
-	#### add is_real_link() call right here, THEN convert to data frame...
+	window_snp_l1_nuc = window_snp_l1_nuc.loc[:,0:10]
 	nuct=time.time()
 	print(nuct-snpt," nuc time")
-	window_snp_l1_nuc.columns = window_snp_l1_nuc.iloc[0]
-	window_snp_l1_nuc = window_snp_l1_nuc.drop(0,axis="rows")
-	keepers = [x for x in window_snp_l1_nuc.columns if "user" in x or "pct_gc" in x]
-	window_snp_l1_nuc = window_snp_l1_nuc.loc[:,keepers]
-	window_snp_l1_nuc.columns = ["chrom","start","end",
-										"num_snps","cov1",
-										"cov2","cov3","fraction_l1","snps/kb","pct_gc"
-										]
+	window_snp_l1_nuc.columns = ["chrom","start","end","num_snps","cov1","cov2","cov3","fraction_l1","snps/kb","AT","pct_gc"]
+	#window_snp_l1_nuc = window_snp_l1_nuc.drop(0,axis="rows")
+	# keepers = [x for x in window_snp_l1_nuc.columns if "user" in x or "pct_gc" in x]
+	# window_snp_l1_nuc = window_snp_l1_nuc.loc[:,keepers]
+	# window_snp_l1_nuc.columns = ["chrom","start","end",
+	# 									"num_snps","cov1",
+	# 									"cov2","cov3","fraction_l1","snps/kb","pct_gc"
+	# 									]
 	window_snp_l1_nuc[["pct_gc","fraction_l1","snps/kb","start","end"]] = \
 	window_snp_l1_nuc[["pct_gc","fraction_l1","snps/kb","start","end"]].apply(pd.to_numeric)
 	gc_score = scipy.stats.percentileofscore(window_snp_l1_nuc["pct_gc"], score=gc, kind='rank')
@@ -92,7 +136,7 @@ def faster_simulate_links(length,window_fraction=0.25,snps=False,l1=False,gc=Fal
 		window_snp_l1_nuc = faster_simulate_links(length=length,snps=snps,gc=gc,l1=l1,wiggle=wiggle,minimum=minimum) # recursive biatch
 		print(wiggle, " wiggle") # not returning this!!!!
 	if len(window_snp_l1_nuc) > maximum:
-		window_snp_l1_nuc = window_snp_l1_nuc.head(n=100) # min is minimum, max is here.
+		window_snp_l1_nuc = window_snp_l1_nuc.sample(n=100,axis="rows",random_state=1) # shuld randomly sample rows!!
 	
 	return window_snp_l1_nuc.loc[:,["chrom","start","end",
 					"snps/kb","pct_gc","fraction_l1"]]
@@ -108,31 +152,26 @@ def is_real_link(x):
 	# x is a bed tool object...
 
 	return a.intersect(b,v=True)
-	
-
-
 
 def search_tcga(segments_df,link_chromosome,link_start,link_end):
 	types = ["gain","loss","neutral","disruption"]
+	# could optimize this by indexing chr first and creating a slice of segments_df? probs much faster?
+	segments_df=segments_df[segments_df['chr']==link_chromosome] # then remove the additional operation from below...
 
-	losses = segments_df[(segments_df['chr'] == link_chromosome) # v2 just appends these
-							& (segments_df['start'] <= link_start)
+	losses = segments_df[(segments_df['start'] <= link_start)
 							& (segments_df['stop'] >= link_end) 
 							& (segments_df['copy_number'] <2.0 )]
 
-	gains = segments_df[(segments_df['chr'] == link_chromosome) 
-							& (segments_df['start'] <= link_start)
+	gains = segments_df[(segments_df['start'] <= link_start)
 							& (segments_df['stop'] >= link_end) 
 							& (segments_df['copy_number'] > 2.0 )]
 
 
-	neutrals = segments_df[(segments_df['chr'] == link_chromosome) 
-							& (segments_df['start'] <= link_start) 
+	neutrals = segments_df[(segments_df['start'] <= link_start) 
 							& (segments_df['stop'] >= link_end) 
 							& (segments_df['copy_number'] == 2.0 )]
 	# max one per sample
-	disruptions = segments_df[(segments_df['chr'] == link_chromosome) 
-								& (segments_df['start'].between(left=link_start,right=link_end)
+	disruptions = segments_df[(segments_df['start'].between(left=link_start,right=link_end)
 								| segments_df['stop'].between(left=link_start,right=link_end))]
 	disruptions = disruptions.drop_duplicates(subset="patient",keep="first")
 	
@@ -141,8 +180,7 @@ def search_tcga(segments_df,link_chromosome,link_start,link_end):
 	disruptions.loc[:,"type"]= pd.Series(["disruption"]*len(disruptions.index),index=disruptions.index).astype(str)
 	neutrals.loc[:,"type"] = pd.Series(["neutral"]*len(neutrals.index),index=neutrals.index).astype(str)
 
-	results= pd.concat([losses,gains,disruptions,neutrals])
-	return results
+	return pd.concat([losses,gains,disruptions,neutrals])
 def cancer_specific(segments_df,links,cancer_types):
 
 	results = { } # each k is a real link
@@ -204,12 +242,17 @@ def cancer_specific(segments_df,links,cancer_types):
 			counts_df = pd.DataFrame.from_dict(counts,orient="index",columns=["gain","loss","disruption","neutral"])
 			fake_counts_df = pd.DataFrame.from_dict(fake_counts,orient="index",columns=["gain","loss","disruption","neutral"])
 
-			output += [[links[i][0],
+			pvals = [links[i][0],
 						cancer_types[k],
 						1-scipy.stats.percentileofscore(fake_counts_df["gain"], score=counts_df["gain"].values[0], kind='weak')/100,
 						1-scipy.stats.percentileofscore(fake_counts_df["loss"], score=counts_df["loss"].values[0], kind='weak')/100,
 						1-scipy.stats.percentileofscore(fake_counts_df["disruption"], score=counts_df["disruption"].values[0], kind='weak')/100,
-						1-scipy.stats.percentileofscore(fake_counts_df["neutral"], score=counts_df["neutral"].values[0], kind='weak')/100]]
+						1-scipy.stats.percentileofscore(fake_counts_df["neutral"], score=counts_df["neutral"].values[0], kind='weak')/100]
+
+			print(len(fake_links))
+			pvals = [1/len(fake_links) if x==0 else x for x in pvals]
+			print(pvals)
+			output += [pvals]
 
 	return output
 ### open and process files
@@ -265,6 +308,11 @@ links_names = [x[0] for x in links]
 pool = mp.Pool()
 results = pool.starmap(cancer_specific,[(segments_df,[x],cancer_types) for x in links]) ##  each link needs to be list of list in parallel call
 
-with open("links_tcga_parallel.txt", "a") as f: # should make this write each loop
+with open("links_tcga_parallel.txt", "w") as f: # should make this write each loop
     writer = csv.writer(f,delimiter="\t") #format output better
     writer.writerows(results)
+
+
+   #  tr '    ' '\n' < links_tcga_parallel1.txt > tcga_results.txt
+
+  # sed 's/\[//g' tcga_results.txt | sed 's/\]//g' | sed "s/'//g" | sed "s/,/      /g" > tcga_results_formatted.tsv
