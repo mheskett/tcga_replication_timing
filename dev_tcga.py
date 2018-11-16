@@ -54,6 +54,12 @@ def plot_features(length,window_fraction=1):
 
 	return
 
+def check_coverage(segments_df,link_chromosome,link_start,link_end):
+	### check TCGA to see if a segment is covered. return a subset of patients where the gene is 100% covered?
+
+	return 
+
+
 def faster_simulate_links(length,window_fraction=0.25,snps=False,l1=False,gc=False,wiggle=0.05,minimum=40,maximum=100):
 	"""
 	returns a list of fake genes, from a length
