@@ -23,7 +23,7 @@ def plot_features(length,window_fraction=1):
 	# initiate bed tool and make windows
 	# all file must be sorted sort -k1,1 -k2,2n
 	a=pybedtools.BedTool()
-	windows=a.window_maker(g="/Users/mike/replication_tcga/data/hg38.nochr.sorted.fa.fai",
+	windows=a.window_maker(g="/Users/mike/replication_tcga/data/TCGA.nochr.bed",
 							w=length,s=length*window_fraction)
 
 	windows_snp = windows.intersect(snp_file,c=True,sorted=True) # makes one column
@@ -64,19 +64,21 @@ def faster_simulate_links(length,window_fraction=0.25,snps=False,l1=False,gc=Fal
 	"""
 	returns a list of fake genes, from a length
 	predicated on the fact that bedtools.nuc is the only slow step in this analysis
+	need to: trim down reference genome to include regions that are not in TCGA
+	then: do a check to see how many samples contain each fake gene....
 	"""
 	if length < 20000:
 		window_fraction = 1
 
 	start=time.time()
 	# snp doesnt need to be bedtool object yet i guess
-	snp_file = "/Users/mike/replication_tcga/data/snp150.ucsc.hg38.nochr.sorted.bed"
-	l1_file = pybedtools.BedTool("/Users/mike/replication_tcga/data/L1_ucsc_hg38_nochr.bed")
+	snp_file = "/Users/mike/replication_tcga/data/hg19/snp150.ucsc.hg19.nochr.bed"
+	l1_file = pybedtools.BedTool("/Users/mike/replication_tcga/data/hg19/l1.ucsc.hg19.nochr.bed")
 
 	# initiate bed tool and make windows
 	# all file must be sorted sort -k1,1 -k2,2n
 	a=pybedtools.BedTool()
-	windows=a.window_maker(g="/Users/mike/replication_tcga/data/hg38.nochr.sorted.fa.fai",
+	windows=a.window_maker(b="/Users/mike/replication_tcga/data/TCGA.nochr.bed",
 							w=length,s=length*window_fraction)
 	wint=time.time()
 	print(wint-start," window time")
@@ -95,7 +97,7 @@ def faster_simulate_links(length,window_fraction=0.25,snps=False,l1=False,gc=Fal
 	## always do nuc on a reduced set of windows
 	df = windows_snp_l1.to_dataframe(names=["chrom","start","end",
 										"num_snps","cov1",
-										"cov2","cov3","fraction_l1"])
+										"cov2","cov3","fraction_l1"]) # check that crom is str or int?
 	df["snps/kb"] = df["num_snps"] / (length/1000)
 
 	snps_score,l1_score = (scipy.stats.percentileofscore(a=df["snps/kb"], score=snps, kind='rank'), # this giving seg fault?
@@ -110,7 +112,7 @@ def faster_simulate_links(length,window_fraction=0.25,snps=False,l1=False,gc=Fal
 		## should add another recursive call right here...
 	b = pybedtools.BedTool()
 	window_snp_l1_reduced = b.from_dataframe(df)
-	window_snp_l1_nuc =  window_snp_l1_reduced.nucleotide_content(fi="/Users/mike/replication_tcga/data/hg38.nochr.fa")#\
+	window_snp_l1_nuc =  window_snp_l1_reduced.nucleotide_content(fi="/Users/mike/replication_tcga/data/hg19/human_g1k_v37_nochr.fasta")#\
 							#.to_dataframe() ## 0th column has colnames. current colname is garbage
 
 	# columns at this point are...
@@ -120,7 +122,8 @@ def faster_simulate_links(length,window_fraction=0.25,snps=False,l1=False,gc=Fal
 	window_snp_l1_nuc = window_snp_l1_nuc.loc[:,0:10]
 	nuct=time.time()
 	print(nuct-snpt," nuc time")
-	window_snp_l1_nuc.columns = ["chrom","start","end","num_snps","cov1","cov2","cov3","fraction_l1","snps/kb","AT","pct_gc"]
+	window_snp_l1_nuc.columns = ["chrom","start","end","num_snps","cov1",
+								"cov2","cov3","fraction_l1","snps/kb","AT","pct_gc"]
 
 	window_snp_l1_nuc[["pct_gc","fraction_l1","snps/kb","start","end"]] = \
 	window_snp_l1_nuc[["pct_gc","fraction_l1","snps/kb","start","end"]].apply(pd.to_numeric)
@@ -129,17 +132,17 @@ def faster_simulate_links(length,window_fraction=0.25,snps=False,l1=False,gc=Fal
 			.between(left=window_snp_l1_nuc["pct_gc"].quantile(q=min_max(gc_score/100-wiggle)),
 					right=window_snp_l1_nuc["pct_gc"].quantile(q=min_max(gc_score/100+wiggle)))]
 	########
-
-
+	## find out how many samples contain each fake link
+    #######
 	if len(window_snp_l1_nuc) < minimum:
 		wiggle+=0.05
 		window_snp_l1_nuc = faster_simulate_links(length=length,snps=snps,gc=gc,l1=l1,wiggle=wiggle,minimum=minimum) # recursive biatch
 		print(wiggle, " wiggle") # not returning this!!!!
 	if len(window_snp_l1_nuc) > maximum:
 		window_snp_l1_nuc = window_snp_l1_nuc.sample(n=100,axis="rows",random_state=1) # shuld randomly sample rows!!
-	
 	return window_snp_l1_nuc.loc[:,["chrom","start","end",
-					"snps/kb","pct_gc","fraction_l1"]]
+					"snps/kb","pct_gc","fraction_l1"]].astype({"chrom":str,"start":int,"end":int,
+						"snps/kb":float,"pct_gc":float,"fraction_l1":float})
 
 def unique_name(x):
 	# given a line of file, create unique name for link
@@ -147,7 +150,7 @@ def unique_name(x):
 
 def is_real_link(x):
 
-	b = pybedtools.BedTool("/Users/mike/replication_tcga/data/links_annotated_grch38.bed")
+	b = pybedtools.BedTool("/Users/mike/replication_tcga/data/hg19/links.annotated.hg19.bed")
 	a = x # returns only non-overlappers with real links
 	# x is a bed tool object...
 
@@ -155,7 +158,6 @@ def is_real_link(x):
 
 def search_tcga(segments_df,link_chromosome,link_start,link_end):
 	types = ["gain","loss","neutral","disruption"]
-	# could optimize this by indexing chr first and creating a slice of segments_df? probs much faster?
 	segments_df=segments_df[segments_df['chr']==link_chromosome] # then remove the additional operation from below...
 
 	losses = segments_df[(segments_df['start'] <= link_start)
@@ -173,7 +175,8 @@ def search_tcga(segments_df,link_chromosome,link_start,link_end):
 	# max one per sample
 	disruptions = segments_df[(segments_df['start'].between(left=link_start,right=link_end)
 								| segments_df['stop'].between(left=link_start,right=link_end))]
-	disruptions = disruptions.drop_duplicates(subset="patient",keep="first")
+	disruptions = disruptions[disruptions.duplicated(subset="patient",keep=False)] # marks all dupes as true cause we want to keep dupes
+	disruptions = disruptions.drop_duplicates(subset="patient",keep="first") # keeps the first dupe
 	
 	losses.loc[:,"type"] = pd.Series(["loss"]*len(losses.index),index=losses.index).astype(str) # empty list was being assigned float64 type...
 	gains.loc[:,"type"] = pd.Series(["gain"]*len(gains.index),index=gains.index).astype(str)
@@ -248,11 +251,7 @@ def cancer_specific(segments_df,links,cancer_types):
 						1-scipy.stats.percentileofscore(fake_counts_df["loss"], score=counts_df["loss"].values[0], kind='weak')/100,
 						1-scipy.stats.percentileofscore(fake_counts_df["disruption"], score=counts_df["disruption"].values[0], kind='weak')/100,
 						1-scipy.stats.percentileofscore(fake_counts_df["neutral"], score=counts_df["neutral"].values[0], kind='weak')/100]
-
-			print(len(fake_links))
-			print(pvals)
 			pvals = [1/len(fake_links) if x==0 else x for x in pvals]
-			print(pvals)
 			output += [pvals]
 
 	return output
@@ -264,7 +263,7 @@ with open ("/Users/mike/replication_tcga/data/tcga_cancer_type_dictionary.txt") 
 	cancer_atlas_dictionary = dict(lines)
 	f.close()
 
-with open ("/Users/mike/replication_tcga/data/links_annotated_grch38.bed") as g:
+with open ("/Users/mike/replication_tcga/data/hg19/links.annotated.hg19.bed") as g:
 	links = g.readlines()
 	links = [x.rstrip("\n").split("\t") for x in links[1:]] # cols are unique_name chrom start end name length snps pct gc l1
 	links = [[str(x[3])+":"+str(x[0])+":"+str(x[1])+"-"+str(x[2]),
@@ -277,7 +276,7 @@ with open ("/Users/mike/replication_tcga/data/links_annotated_grch38.bed") as g:
 	float(x[6]),
 	float(x[7])] for x in links]
 	g.close()
-with open ("/Users/mike/replication_tcga/data/TCGA.segtabs.final.merged.bed") as h:
+with open ("/Users/mike/replication_tcga/data/TCGA.segtabs.final.merged.sorted.no23.bed") as h:
 	segments = h.readlines()
 	segments = [x.rstrip("\n").split("\t") for x in segments]
 	# segments = [[str(x[0]),
@@ -297,7 +296,8 @@ segments = [[str(x[0]),
 	str(cancer_atlas_dictionary[str(x[3][:-3])]),
 	float(x[4])] for x in segments if x[3][:-3] in cancer_atlas_dictionary.keys()] # v slow...2min
 
-segments_df= pd.DataFrame(segments)
+segments_df= pd.DataFrame(segments)#.astype({0: str})
+print(segments_df.dtypes)
 segments_df.columns = ["chr","start","stop","patient","cancer_type","copy_number"]
 types = ["gain","loss","neutral","disruption"]
 cancer_types = list(np.unique([x for x in cancer_atlas_dictionary.values()]))
