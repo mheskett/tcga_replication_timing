@@ -69,7 +69,7 @@ with open(bedfile) as asars:
 	asar_list = [[str(x[0]),int(x[1]),int(x[2])] for x in lines]
 
 #asar_list = [["9",10000000,20000000],["2",3000000,7000000],["6",30000000,32000000]]
-f,ax = plt.subplots(1,len(chromosomes),sharex=False,sharey=False,figsize=(14,1))
+f,ax = plt.subplots(1,len(chromosomes),sharex=False,sharey=False,figsize=(14,.5))
 f.subplots_adjust(hspace=0)
 
 for i in range(len(chromosomes)):
@@ -88,9 +88,9 @@ for i in range(len(chromosomes)):
 	ax2.plot(l1_start,l1_fraction_smoothed,alpha=0.2,zorder=1,label="l1 fraction") #s=3
 	ax2.set_xticks([])
 	ax2.set_yticks([])
-	ax2.set_ylim([-3,3])
+	ax2.set_ylim([-2,2])
 
-	ax[i].axhline(y=0,color="black",linestyle="-",zorder=3)
+	ax[i].axhline(y=0,color="blue",linestyle="--",zorder=3,lw=0.5,alpha=0.2)
 
 	#ax[i].scatter(,s=1,lw=0.05,
 	          #  label=samples[j],edgecolor="black",alpha=0.6)
@@ -99,7 +99,7 @@ for i in range(len(chromosomes)):
 	ax[i].set_xticks([])
 	ax[i].set_ylim([-10,10])
 	ax[i].set_xlim([0,stop_start[chromosomes[i]]])
-	ax[i].axvline(x=int(centromere[chromosomes[i]]), linestyle = "--", lw = 0.5,color="blue")
+	ax[i].axvline(x=int(centromere[chromosomes[i]]), linestyle = "--", lw = 0.5,color="black")
 	
 	for j in range(len(asar_list)):
 		if asar_list[j][0]==chromosomes[i]:
