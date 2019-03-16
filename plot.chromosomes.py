@@ -54,16 +54,16 @@ stop_start = {"1":249250621,
 "22":51304566,
 "21":48129895}
 
-bedfile = "test.asar.bed"
+bedfile = "/Users/mike/replication_tcga/data/hg19/links.annotated.hg19.bed"
 
 with open(bedfile) as asars:
 	lines = asars.readlines()
-	lines = [x.rstrip("\n").split("\t") for x in lines] #or lines[1:] if theres a header
+	lines = [x.rstrip("\n").split("\t") for x in lines[1:]] #or lines[1:] if theres a header
 	asar_list = [[str(x[0]),int(x[1]),int(x[2])] for x in lines]
 
 #asar_list = [["9",10000000,20000000],["2",3000000,7000000],["6",30000000,32000000]]
 f,ax = plt.subplots(1,len(chromosomes),sharex=False,sharey=False,figsize=(14,1))
-f.subplots_adjust(hspace=0)
+f.subplots_adjust(hspace=0,bottom=0.2)
 
 for i in range(len(chromosomes)):
 	ax[i].axhline(y=0,color="black",linestyle="-")
@@ -94,8 +94,6 @@ for i in range(len(chromosomes)):
 	ax[i].set(xlabel=chromosomes[i]) # x axis labels or no
 
 
-
 f.subplots_adjust(wspace=0, hspace=0)
 #plt.legend(loc='center left', bbox_to_anchor=(1, 0.5),prop={'size':4}, markerscale = 3)
-
-plt.show()
+plt.savefig("asar.chromosome.plot.png",dpi=400,transparent=True)
