@@ -29,7 +29,7 @@ centromere = {"1":"124535434", # hg19
 "21":"14288129",
 "22":"16000000"}
 
-l1_df = pd.read_table("/Users/heskett/tcga_replication_timing/data/hg38.l1.counts.1mb.window.bed",
+l1_df = pd.read_table("/Users/mike/replication_tcga/data/hg38/hg38.l1.1mb.window.counts.bed",
 	names=["chrom","start","stop","l1count","l1bases","seglength","l1fraction"])
 
 
@@ -61,16 +61,16 @@ stop_start = {"1":249250621,
 "22":51304566,
 "21":48129895}
 
-bedfile = "test.asar.bed"
+bedfile = "/Users/mike/replication_tcga/data/hg38/links_annotated_grch38.bed"
 
 with open(bedfile) as asars:
 	lines = asars.readlines()
-	lines = [x.rstrip("\n").split("\t") for x in lines] #or lines[1:] if theres a header
+	lines = [x.rstrip("\n").split("\t") for x in lines[1:]] #or lines[1:] if theres a header
 	asar_list = [[str(x[0]),int(x[1]),int(x[2])] for x in lines]
 
 #asar_list = [["9",10000000,20000000],["2",3000000,7000000],["6",30000000,32000000]]
-f,ax = plt.subplots(1,len(chromosomes),sharex=False,sharey=False,figsize=(14,.5))
-f.subplots_adjust(hspace=0)
+f,ax = plt.subplots(1,len(chromosomes),sharex=False,sharey=False,figsize=(14,1))
+f.subplots_adjust(hspace=0,bottom=0.4)
 
 for i in range(len(chromosomes)):
 
@@ -78,17 +78,17 @@ for i in range(len(chromosomes)):
 	l1_start = l1_df[l1_df["chrom"]==chromosomes[i]]["start"]
 	l1_fraction = l1_df[l1_df["chrom"]==chromosomes[i]]["l1fraction"]
 	l1_fraction_zscore = (l1_fraction - l1_fraction.mean()) / l1_fraction.std() # dont do z scores if you want to have one line on top one line below
-	l1_fraction_smoothed = lowess(l1_fraction_zscore,
+	l1_fraction_smoothed = lowess(l1_fraction,
 		l1_start,
 	    return_sorted=False,
 	    frac=20/len(l1_fraction_zscore))
 	ax2= ax[i].twinx() 
 	x=range(0,stop_start[chromosomes[i]],100000)
 	y = [val / stop_start[chromosomes[i]] for val in x ] 
-	ax2.plot(l1_start,l1_fraction_smoothed,alpha=0.2,zorder=1,label="l1 fraction") #s=3
+	ax2.plot(l1_start,l1_fraction_smoothed,alpha=0.2,zorder=1,label="L1 fraction") #s=3
 	ax2.set_xticks([])
 	ax2.set_yticks([])
-	ax2.set_ylim([-2,2])
+	ax2.set_ylim([-.35,.35])
 
 	ax[i].axhline(y=0,color="blue",linestyle="--",zorder=3,lw=0.5,alpha=0.2)
 
@@ -108,8 +108,8 @@ for i in range(len(chromosomes)):
 			ax[i].add_patch(matplotlib.patches.Rectangle((asar_start,-2),width=asar_stop - asar_start,
 			height=4,color="red",zorder=3,label="ASAR"))
 	ax[i].set(xlabel=chromosomes[i]) # x axis labels or no
-plt.legend(loc='center left', bbox_to_anchor=(1, 0.5),prop={'size':10}, markerscale = 5)
+#plt.legend(loc='center left', bbox_to_anchor=(1, 0.5),prop={'size':10}, markerscale = 5)
 f.subplots_adjust(wspace=0, hspace=0)
 #plt.legend(loc='center left', bbox_to_anchor=(1, 0.5),prop={'size':4}, markerscale = 3)
-
+plt.savefig("asar.chromosome.plot.png",dpi=400,transparent=True)
 plt.show()
