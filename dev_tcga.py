@@ -246,11 +246,11 @@ def cancer_specific(segments_df,links,cancer_types):
 			fake_counts_df = pd.DataFrame.from_dict(fake_counts,orient="index",columns=["gain","loss","disruption","neutral"])
 
 			pvals = [links[i][0],
-						cancer_types[k],
-						1-scipy.stats.percentileofscore(fake_counts_df["gain"], score=counts_df["gain"].values[0], kind='weak')/100,
-						1-scipy.stats.percentileofscore(fake_counts_df["loss"], score=counts_df["loss"].values[0], kind='weak')/100,
-						1-scipy.stats.percentileofscore(fake_counts_df["disruption"], score=counts_df["disruption"].values[0], kind='weak')/100,
-						1-scipy.stats.percentileofscore(fake_counts_df["neutral"], score=counts_df["neutral"].values[0], kind='weak')/100]
+						cancer_types[k], # type weak means <=, type strict means only values strictly less are counted
+						1-scipy.stats.percentileofscore(fake_counts_df["gain"], score=counts_df["gain"].values[0], kind='strict')/100, 
+						1-scipy.stats.percentileofscore(fake_counts_df["loss"], score=counts_df["loss"].values[0], kind='strict')/100,
+						1-scipy.stats.percentileofscore(fake_counts_df["disruption"], score=counts_df["disruption"].values[0], kind='strict')/100,
+						1-scipy.stats.percentileofscore(fake_counts_df["neutral"], score=counts_df["neutral"].values[0], kind='strict')/100]
 			pvals = [1/len(fake_links) if x==0 else x for x in pvals]
 			output += [pvals]
 
