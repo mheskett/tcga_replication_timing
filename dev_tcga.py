@@ -72,13 +72,13 @@ def faster_simulate_links(length,window_fraction=0.25,snps=False,l1=False,gc=Fal
 
 	start=time.time()
 	# snp doesnt need to be bedtool object yet i guess
-	snp_file = "/Users/mike/replication_tcga/data/hg19/snp150.ucsc.hg19.nochr.bed"
-	l1_file = pybedtools.BedTool("/Users/mike/replication_tcga/data/hg19/l1.ucsc.hg19.nochr.bed")
+	snp_file = "/Users/heskett/tcga_replication_timing/data/hg19/snp150.ucsc.hg19.nochr.bed"
+	l1_file = pybedtools.BedTool("/Users/heskett/tcga_replication_timing/data/hg19/l1.ucsc.hg19.nochr.bed")
 
 	# initiate bed tool and make windows
 	# all file must be sorted sort -k1,1 -k2,2n
 	a=pybedtools.BedTool()
-	windows=a.window_maker(b="/Users/mike/replication_tcga/data/TCGA.nochr.bed",
+	windows=a.window_maker(b="/Users/heskett/tcga_replication_timing/data/hg19/TCGA.nochr.bed",
 							w=length,s=length*window_fraction)
 	wint=time.time()
 	print(wint-start," window time")
@@ -112,7 +112,7 @@ def faster_simulate_links(length,window_fraction=0.25,snps=False,l1=False,gc=Fal
 		## should add another recursive call right here...
 	b = pybedtools.BedTool()
 	window_snp_l1_reduced = b.from_dataframe(df)
-	window_snp_l1_nuc =  window_snp_l1_reduced.nucleotide_content(fi="/Users/mike/replication_tcga/data/hg19/human_g1k_v37_nochr.fasta")#\
+	window_snp_l1_nuc =  window_snp_l1_reduced.nucleotide_content(fi="/Users/heskett/tcga_replication_timing/data/hg19/human_g1k_v37_nochr.fasta")#\
 							#.to_dataframe() ## 0th column has colnames. current colname is garbage
 
 	# columns at this point are...
@@ -150,7 +150,7 @@ def unique_name(x):
 
 def is_real_link(x):
 
-	b = pybedtools.BedTool("/Users/mike/replication_tcga/data/hg19/links.annotated.hg19.bed")
+	b = pybedtools.BedTool("/Users/heskett/tcga_replication_timing/data/hg19/links.annotated.hg19.bed")
 	a = x # returns only non-overlappers with real links
 	# x is a bed tool object...
 
@@ -159,7 +159,8 @@ def is_real_link(x):
 def search_tcga(segments_df,link_chromosome,link_start,link_end):
 	types = ["gain","loss","neutral","disruption"]
 	segments_df=segments_df[segments_df['chr']==link_chromosome] # then remove the additional operation from below...
-
+	print("dododo")
+	import pdb;pdb.set_trace()
 	losses = segments_df[(segments_df['start'] <= link_start)
 							& (segments_df['stop'] >= link_end) 
 							& (segments_df['copy_number'] <2.0 )]
@@ -184,6 +185,7 @@ def search_tcga(segments_df,link_chromosome,link_start,link_end):
 	neutrals.loc[:,"type"] = pd.Series(["neutral"]*len(neutrals.index),index=neutrals.index).astype(str)
 
 	return pd.concat([losses,gains,disruptions,neutrals])
+
 def cancer_specific(segments_df,links,cancer_types):
 
 	results = { } # each k is a real link
@@ -257,13 +259,13 @@ def cancer_specific(segments_df,links,cancer_types):
 	return output
 ### open and process files
 
-with open ("/Users/mike/replication_tcga/data/tcga_cancer_type_dictionary.txt") as f:
+with open ("/Users/heskett/tcga_replication_timing/data/hg19/tcga_cancer_type_dictionary.txt") as f:
 	lines = f.readlines()
 	lines = (x.rstrip("\n").split("\t") for x in lines)
 	cancer_atlas_dictionary = dict(lines)
 	f.close()
 
-with open ("/Users/mike/replication_tcga/data/hg19/links.annotated.hg19.bed") as g:
+with open ("/Users/heskett/tcga_replication_timing/data/hg19/links.annotated.hg19.bed") as g:
 	links = g.readlines()
 	links = [x.rstrip("\n").split("\t") for x in links[1:]] # cols are unique_name chrom start end name length snps pct gc l1
 	links = [[str(x[3])+":"+str(x[0])+":"+str(x[1])+"-"+str(x[2]),
@@ -276,7 +278,7 @@ with open ("/Users/mike/replication_tcga/data/hg19/links.annotated.hg19.bed") as
 	float(x[6]),
 	float(x[7])] for x in links]
 	g.close()
-with open ("/Users/mike/replication_tcga/data/TCGA.segtabs.final.merged.sorted.no23.bed") as h:
+with open ("/Users/heskett/tcga_replication_timing/data/hg19/TCGA.segtabs.final.merged.sorted.no23.bed") as h:
 	segments = h.readlines()
 	segments = [x.rstrip("\n").split("\t") for x in segments]
 	# segments = [[str(x[0]),
