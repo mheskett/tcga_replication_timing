@@ -160,8 +160,8 @@ def search_tcga(segments_df,link_chromosome,link_start,link_end):
 	types = ["gain","loss","neutral","disruption"]
 	segments_df=segments_df[segments_df['chr']==link_chromosome] # then remove the additional operation from below...
 	print("dododo")
-	import pdb;pdb.set_trace()
-	losses = segments_df[(segments_df['start'] <= link_start)
+	#import pdb;pdb.set_trace()
+	losses = segments_df[(segments_df['start'] <= link_start) 
 							& (segments_df['stop'] >= link_end) 
 							& (segments_df['copy_number'] <2.0 )]
 
@@ -174,16 +174,16 @@ def search_tcga(segments_df,link_chromosome,link_start,link_end):
 							& (segments_df['stop'] >= link_end) 
 							& (segments_df['copy_number'] == 2.0 )]
 	# max one per sample
-	disruptions = segments_df[(segments_df['start'].between(left=link_start,right=link_end)
-								| segments_df['stop'].between(left=link_start,right=link_end))]
-	disruptions = disruptions[disruptions.duplicated(subset="patient",keep=False)] # marks all dupes as true cause we want to keep dupes
-	disruptions = disruptions.drop_duplicates(subset="patient",keep="first") # keeps the first dupe
+	disruptions = segments_df[(segments_df['start'].between(left=link_start, right=link_end)
+								| segments_df['stop'].between(left=link_start, right=link_end))]
+	disruptions = disruptions[disruptions.duplicated(subset="patient", keep=False)] # mcaarks all dupes as true cause we want to keep dupes
+	disruptions = disruptions.drop_duplicates(subset="patient", keep="first") # keeps the first dupe
 	
-	losses.loc[:,"type"] = pd.Series(["loss"]*len(losses.index),index=losses.index).astype(str) # empty list was being assigned float64 type...
-	gains.loc[:,"type"] = pd.Series(["gain"]*len(gains.index),index=gains.index).astype(str)
-	disruptions.loc[:,"type"]= pd.Series(["disruption"]*len(disruptions.index),index=disruptions.index).astype(str)
-	neutrals.loc[:,"type"] = pd.Series(["neutral"]*len(neutrals.index),index=neutrals.index).astype(str)
-
+	losses.loc[:,"type"] = pd.Series(["loss"]*len(losses.index), index=losses.index).astype(str) # empty list was being assigned float64 type...
+	gains.loc[:,"type"] = pd.Series(["gain"]*len(gains.index), index=gains.index).astype(str)
+	disruptions.loc[:,"type"]= pd.Series(["disruption"]*len(disruptions.index), index=disruptions.index).astype(str)
+	neutrals.loc[:,"type"] = pd.Series(["neutral"]*len(neutrals.index), index=neutrals.index).astype(str)
+	print(pd.concat([losses,gains,disruptions,neutrals]))
 	return pd.concat([losses,gains,disruptions,neutrals])
 
 def cancer_specific(segments_df,links,cancer_types):
@@ -224,13 +224,13 @@ def cancer_specific(segments_df,links,cancer_types):
 							) # these are named here
 			# print(fake_results[name])
 		print("counting cancer specific disruptions in real and simulated links")
-
-		for k in range(len(cancer_types)):	
+		### Needs to have coverage = ( gain + loss + disruption + neutral ) / total samples per in a cancer type
+		for k in range(len(cancer_types)):	## Get rid of low coverage cancer types here
 
 			counts = {}
 			df = results[links[i][0]]
 
-			counts[links[i][0]] = [len(df[(df["cancer_type"]==cancer_types[k]) & (df["type"]=="gain")]) ,
+			counts[links[i][0]] = [len(df[(df["cancer_type"]==cancer_types[k]) & (df["type"]=="gain")]) , ## just divide here by total n cancer type
 									len(df[(df["cancer_type"]==cancer_types[k]) & (df["type"]=="loss")]),
 									len(df[(df["cancer_type"]==cancer_types[k]) & (df["type"]=="disruption")]),
 									len(df[(df["cancer_type"]==cancer_types[k]) & (df["type"]=="neutral")])]
@@ -299,7 +299,8 @@ segments = [[str(x[0]),
 	float(x[4])] for x in segments if x[3][:-3] in cancer_atlas_dictionary.keys()] # v slow...2min
 
 segments_df= pd.DataFrame(segments)#.astype({0: str})
-print(segments_df.dtypes)
+## get rid of all segments belonging to low coverage tumor types
+#### 
 segments_df.columns = ["chr","start","stop","patient","cancer_type","copy_number"]
 types = ["gain","loss","neutral","disruption"]
 cancer_types = list(np.unique([x for x in cancer_atlas_dictionary.values()]))
