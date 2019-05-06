@@ -183,7 +183,7 @@ def search_tcga(segments_df,link_chromosome,link_start,link_end):
 	gains.loc[:,"type"] = pd.Series(["gain"]*len(gains.index), index=gains.index).astype(str)
 	disruptions.loc[:,"type"]= pd.Series(["disruption"]*len(disruptions.index), index=disruptions.index).astype(str)
 	neutrals.loc[:,"type"] = pd.Series(["neutral"]*len(neutrals.index), index=neutrals.index).astype(str)
-	#print(pd.concat([losses,gains,disruptions,neutrals]))
+	print(pd.concat([losses,gains,disruptions,neutrals]))
 	return pd.concat([losses,gains,disruptions,neutrals])
 
 def cancer_specific(segments_df,links,cancer_types):
@@ -308,7 +308,7 @@ segments_df = segments_df[~segments_df.cancer_type.isin(exclude_list)]
 exclude_list = ["ACC","CHOL","DLBC","KICH","MESO","UCS","UVM"]
 
 patients_per_type = segments_df.groupby("cancer_type")["patient"].nunique()
-
+total_patients = sum(patients_per_type)
 types = ["gain","loss","neutral","disruption"]
 cancer_types = list(np.unique([x for x in cancer_atlas_dictionary.values() if x not in exclude_list]))
 links_names = [x[0] for x in links]
