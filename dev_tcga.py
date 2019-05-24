@@ -60,7 +60,7 @@ def check_coverage(segments_df,link_chromosome,link_start,link_end):
 	return 
 
 
-def faster_simulate_links(length,window_fraction=0.25,snps=False,l1=False,gc=False,wiggle=0.05,minimum=40,maximum=100):
+def faster_simulate_links(length,window_fraction=0.25,snps=False,l1=False,gc=False,wiggle=0.1,minimum=40,maximum=100):
 	"""
 	returns a list of fake genes, from a length
 	predicated on the fact that bedtools.nuc is the only slow step in this analysis
