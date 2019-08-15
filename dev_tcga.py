@@ -78,7 +78,8 @@ def faster_simulate_links(length,window_fraction=0.25,snps=False,l1=False,gc=Fal
 	# initiate bed tool and make windows
 	# all file must be sorted sort -k1,1 -k2,2n
 	a=pybedtools.BedTool()
-	windows=a.window_maker(b="/Users/heskett/tcga_replication_timing/data/hg19/TCGA.nochr.bed",
+	## b = "/Users/heskett/tcga_replication_timing/data/hg19/TCGA.nochr.bed"
+	windows=a.window_maker(b="/Users/heskett/tcga_replication_timing/data/hg19/ucsc.not.i.e.tcga.covered.bed",
 							w=length,s=length*window_fraction)
 	wint=time.time()
 	print(wint-start," window time")
@@ -159,7 +160,6 @@ def is_real_link(x):
 def search_tcga(segments_df,link_chromosome,link_start,link_end):
 	types = ["gain","loss","neutral","disruption"]
 	segments_df=segments_df[segments_df['chr']==link_chromosome] # then remove the additional operation from below...
-	print("dododo")
 	#import pdb;pdb.set_trace()
 	losses = segments_df[(segments_df['start'] <= link_start) 
 							& (segments_df['stop'] >= link_end) 
@@ -183,7 +183,7 @@ def search_tcga(segments_df,link_chromosome,link_start,link_end):
 	gains.loc[:,"type"] = pd.Series(["gain"]*len(gains.index), index=gains.index).astype(str)
 	disruptions.loc[:,"type"]= pd.Series(["disruption"]*len(disruptions.index), index=disruptions.index).astype(str)
 	neutrals.loc[:,"type"] = pd.Series(["neutral"]*len(neutrals.index), index=neutrals.index).astype(str)
-	print(pd.concat([losses,gains,disruptions,neutrals]))
+	#print(pd.concat([losses,gains,disruptions,neutrals]))
 	return pd.concat([losses,gains,disruptions,neutrals])
 
 def cancer_specific(segments_df,links,cancer_types):
