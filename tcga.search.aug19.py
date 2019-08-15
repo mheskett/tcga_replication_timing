@@ -9,6 +9,7 @@ import re
 import time
 import scipy.stats
 import multiprocessing as mp
+import pickle
 def min_max(x):
 	return min(max(0,x),1)
 
@@ -33,19 +34,22 @@ def faster_simulate_links(length,window_fraction=0.25,snps=False,l1=False,gc=Fal
 
 	start=time.time()
 	# snp doesnt need to be bedtool object yet i guess
-	snp_file = "/Users/heskett/tcga_replication_timing/data/hg19/snp150.ucsc.hg19.nochr.bed"
-	l1_file = pybedtools.BedTool("/Users/heskett/tcga_replication_timing/data/hg19/l1.ucsc.hg19.nochr.bed")
+	snp_file = "/Users/heskett/tcga_replication_timing/data/hg19/ucsc.snp150.nochr.hg19.bed"
+	l1_file = pybedtools.BedTool("/Users/heskett/tcga_replication_timing/data/hg19/ucsc.l1.nochr.hg19.bed")
 
 	# initiate bed tool and make windows
 	# all file must be sorted sort -k1,1 -k2,2n
 	a=pybedtools.BedTool()
 	# "/Users/heskett/tcga_replication_timing/data/hg19/TCGA.nochr.bed"
+	### using the covered regions here will result in smaller segments. window maker will just make a window
+	### that covers the whole segment if the segment size is smaller than window size.
 	windows=a.window_maker(b="/Users/heskett/tcga_replication_timing/data/hg19/ucsc.not.i.e.tcga.covered.bed",
 							w=length,s=length*window_fraction)
 	wint=time.time()
 	print(wint-start," window time")
 
 	windows_snp = windows.intersect(snp_file,c=True,sorted=True) # makes one column
+	print(windows_snp)
 	snpt=time.time()
 	print(snpt-wint," snp time")
 	#print(str(snpt-gc)+ " time for snp ") ## pre sorted file much faster sort -k1,1 -k2,2n
@@ -112,14 +116,104 @@ def faster_simulate_links(length,window_fraction=0.25,snps=False,l1=False,gc=Fal
 	print(final)
 	return final
 
-files=[]
-for i in range(5):
-	l1=.25 + i*0.05 
-	length=200000
-	gc=0.35
-	snps=3.9
-	faster_simulate_links(length,window_fraction=0.25,snps=snps,l1=l1,gc=gc,wiggle=0.1,minimum=40,maximum=200)
-	files+=["simulate.asars."+ str(l1)+ "."+ str(length)+"."+str(snps)+"."+str(gc)+".bed"]
-	file_string = "igv " + " ".join(files)
+def search_tcga(segments_df,link_chromosome,link_start,link_end):
+	types = ["gain","loss","neutral","disruption"]
+	segments_df = segments_df[segments_df['chr']==link_chromosome] # then remove the additional operation from below...
+	#import pdb;pdb.set_trace()
+	losses = segments_df[(segments_df['start'] <= link_start) 
+							& (segments_df['stop'] >= link_end) 
+							& (segments_df['copy_number'] <2.0 )]
 
-os.system(file_string)
+	gains = segments_df[(segments_df['start'] <= link_start)
+							& (segments_df['stop'] >= link_end) 
+							& (segments_df['copy_number'] > 2.0 )]
+
+
+	neutrals = segments_df[(segments_df['start'] <= link_start) 
+							& (segments_df['stop'] >= link_end) 
+							& (segments_df['copy_number'] == 2.0 )]
+	# max one per sample
+	disruptions = segments_df[(segments_df['start'].between(left=link_start, right=link_end)
+								| segments_df['stop'].between(left=link_start, right=link_end))]
+	disruptions = disruptions[disruptions.duplicated(subset="patient", keep=False)] # mcaarks all dupes as true cause we want to keep dupes
+	disruptions = disruptions.drop_duplicates(subset="patient", keep="first") # keeps the first dupe
+	
+	losses.loc[:,"type"] = pd.Series(["loss"]*len(losses.index), index=losses.index).astype(str) # empty list was being assigned float64 type...
+	gains.loc[:,"type"] = pd.Series(["gain"]*len(gains.index), index=gains.index).astype(str)
+	disruptions.loc[:,"type"]= pd.Series(["disruption"]*len(disruptions.index), index=disruptions.index).astype(str)
+	neutrals.loc[:,"type"] = pd.Series(["neutral"]*len(neutrals.index), index=neutrals.index).astype(str)
+	#print(pd.concat([losses,gains,disruptions,neutrals]))
+	return pd.concat([losses,gains,disruptions,neutrals])
+
+#### load data and preprocess
+
+with open ("/Users/heskett/tcga_replication_timing/data/hg19/tcga_cancer_type_dictionary.txt") as f:
+	lines = f.readlines()
+	lines = (x.rstrip("\n").split("\t") for x in lines)
+	cancer_atlas_dictionary = dict(lines)
+	f.close()
+
+with open ("/Users/heskett/tcga_replication_timing/data/hg19/TCGA.segtabs.final.merged.sorted.no23.bed") as h:
+	segments = h.readlines()
+	segments = [x.rstrip("\n").split("\t") for x in segments]
+	h.close() # fast
+
+
+with open ("/Users/heskett/tcga_replication_timing/data/hg19/ucsc.not.i.e.tcga.covered.20kb.min.bed") as i:
+	regions = i.readlines()
+	regions = [x.rstrip("\n").split("\t") for x in regions]
+	regions = [[str(x[0]),int(x[1]),int(x[2])] for x in regions]
+	i.close() # fast
+segments = [[str(x[0]),
+	int(x[1]),
+	int(x[2]),
+	str(x[3]),
+	str(cancer_atlas_dictionary[str(x[3][:-3])]),
+	float(x[4])] for x in segments if x[3][:-3] in cancer_atlas_dictionary.keys()] # v slow...2min
+
+exclude_list = ["ACC","CHOL","DLBC","KICH","MESO","UCS","UVM"]
+segments_df= pd.DataFrame(segments)
+## get rid of all segments belonging to low coverage tumor types
+segments_df.columns = ["chr","start","stop","patient","cancer_type","copy_number"]
+segments_df = segments_df[~segments_df.cancer_type.isin(exclude_list)]
+################################
+non_coding_regions = [["nc_region_"+str(x[0])+":"+str(x[1])+"-"+str(x[2]),x[0],x[1],x[2]] for x in regions]
+
+pool = mp.Pool(7)
+results = pool.starmap(search_tcga,[(segments_df,x[1],x[2],x[3]) for x in non_coding_regions]) ##  each link needs to be list of list in parallel call
+
+final={}
+for i in range(len(results)):
+	final[non_coding_regions[i][0]] = results[i] 
+
+pickle.dump(final,open("tcga.disruptions.aug15.pickle","wb"))
+
+
+# for i in range(len(non_coding_regions)):
+# 	print("iteration")
+# 	results[non_coding_regions[i][0]] = search_tcga(segments_df,
+# 											non_coding_regions[i][1],
+# 											non_coding_regions[i][2],
+# 											non_coding_regions[i][3])
+# tmp = search_tcga(segments_df,non_coding_regions[0][1],non_coding_regions[0][2],non_coding_regions[0][3])
+
+# tmp["type"].value_counts().plot(kind='bar')
+# plt.show()
+
+
+# tmp.loc[:,["chr","start","stop","type"]].to_csv("test.tcgaserach.bed",sep="\t",index=None,header=None)
+
+# os.system("igv test.tcgaserach.bed")
+
+
+### this simulates links and then plots in IGV
+# files=[]
+# for i in range(5):
+# 	l1=.25 + i*0.05 
+# 	length=200000
+# 	gc=0.35
+# 	snps=3.9
+# 	faster_simulate_links(length,window_fraction=0.25,snps=snps,l1=l1,gc=gc,wiggle=0.1,minimum=40,maximum=200)
+# 	files+=["simulate.asars."+ str(l1)+ "."+ str(length)+"."+str(snps)+"."+str(gc)+".bed"]
+# 	file_string = "igv " + " ".join(files)
+# os.system(file_string)
