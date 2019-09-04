@@ -9,7 +9,8 @@ import re
 import time
 import scipy.stats
 import multiprocessing as mp
-import pickle
+import random
+import json
 def min_max(x):
 	return min(max(0,x),1)
 
@@ -21,7 +22,23 @@ def is_real_link(x):
 
 	return a.intersect(b,v=True)
 
-def faster_simulate_links(length,window_fraction=0.25,snps=False,l1=False,gc=False,wiggle=0.1,minimum=40,maximum=100):
+def simulate_links_by_length(length, window_fraction=0.1, minimum=40, maximum=100):
+
+	tcga_file = "/Users/heskett/tcga_replication_timing/data/hg19/ucsc.not.i.e.tcga.covered.bed"
+
+	rand = str(random.randint(0,1000))
+	tmp_file = "tmp." + str(length) + "." + rand + "." + "filtered.bed"
+	awk_command = " awk '$3-$2>=" + str(length) + "{print $0}' " + tcga_file + " > tmp." + str(length) + "." + rand + "." + "filtered.bed"
+	os.system(awk_command)
+	
+	a=pybedtools.BedTool()
+	windows=a.window_maker(b=tmp_file, w=length, s=length*window_fraction)
+
+	#os.system("igv "+str(tmp_file))
+	os.system("rm " + tmp_file)
+	return len(windows)
+
+def faster_simulate_links(length, window_fraction=0.25, snps=False, l1=False, gc=False, wiggle=0.1, minimum=40, maximum=100):
 	"""
 	returns a list of fake genes, from a length
 	predicated on the fact that bedtools.nuc is the only slow step in this analysis
@@ -171,23 +188,26 @@ segments = [[str(x[0]),
 	str(cancer_atlas_dictionary[str(x[3][:-3])]),
 	float(x[4])] for x in segments if x[3][:-3] in cancer_atlas_dictionary.keys()] # v slow...2min
 
-exclude_list = ["ACC","CHOL","DLBC","KICH","MESO","UCS","UVM"]
-segments_df= pd.DataFrame(segments)
-## get rid of all segments belonging to low coverage tumor types
-segments_df.columns = ["chr","start","stop","patient","cancer_type","copy_number"]
-segments_df = segments_df[~segments_df.cancer_type.isin(exclude_list)]
-################################
-non_coding_regions = [["nc_region_"+str(x[0])+":"+str(x[1])+"-"+str(x[2]),x[0],x[1],x[2]] for x in regions]
+# exclude_list = ["ACC","CHOL","DLBC","KICH","MESO","UCS","UVM"]
+# segments_df= pd.DataFrame(segments)
+# ## get rid of all segments belonging to low coverage tumor types
+# segments_df.columns = ["chr","start","stop","patient","cancer_type","copy_number"]
+# segments_df = segments_df[~segments_df.cancer_type.isin(exclude_list)]
+# ################################
+# non_coding_regions = [["nc_region_"+str(x[0])+":"+str(x[1])+"-"+str(x[2]),x[0],x[1],x[2]] for x in regions]
 
-pool = mp.Pool(7)
-results = pool.starmap(search_tcga,[(segments_df,x[1],x[2],x[3]) for x in non_coding_regions]) ##  each link needs to be list of list in parallel call
+# pool = mp.Pool(7)
+# results = pool.starmap(search_tcga,[(segments_df,x[1],x[2],x[3]) for x in non_coding_regions]) ##  each link needs to be list of list in parallel call
 
-final={}
-for i in range(len(results)):
-	final[non_coding_regions[i][0]] = results[i] 
+# final = pd.DataFrame()
+# for i in range(len(results)):
+# 	results[i]["nc_region_chr"] = non_coding_regions[i][1]
+# 	results[i]["nc_region_start"] = non_coding_regions[i][2]
+# 	results[i]["nc_region_stop"] = non_coding_regions[i][3]
 
-pickle.dump(final,open("tcga.disruptions.aug15.pickle","wb"))
+# final = pd.concat(results)
 
+# final.to_csv("tcga.search.on.all.noncoding.aug15.txt",sep="\t",header=True,index=None)
 
 # for i in range(len(non_coding_regions)):
 # 	print("iteration")
@@ -206,7 +226,7 @@ pickle.dump(final,open("tcga.disruptions.aug15.pickle","wb"))
 # os.system("igv test.tcgaserach.bed")
 
 
-### this simulates links and then plots in IGV
+## this simulates links and then plots in IGV
 # files=[]
 # for i in range(5):
 # 	l1=.25 + i*0.05 
@@ -217,3 +237,7 @@ pickle.dump(final,open("tcga.disruptions.aug15.pickle","wb"))
 # 	files+=["simulate.asars."+ str(l1)+ "."+ str(length)+"."+str(snps)+"."+str(gc)+".bed"]
 # 	file_string = "igv " + " ".join(files)
 # os.system(file_string)
+
+
+### make a plot of the number of intergenic regions of length N for every length N 100kb to 1MB
+print(simulate_links_by_length(200000))
